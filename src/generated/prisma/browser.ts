@@ -37,3 +37,13 @@ export type TicketType = Prisma.TicketTypeModel
  * 
  */
 export type EventUser = Prisma.EventUserModel
+/**
+ * Model Ticket
+ * 
+ */
+export type Ticket = Prisma.TicketModel
+/**
+ * Model Payment
+ * 
+ */
+export type Payment = Prisma.PaymentModel

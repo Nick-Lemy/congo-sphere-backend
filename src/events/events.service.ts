@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -15,6 +16,8 @@ import { TicketsService } from '../tickets/tickets.service';
 import { UserService } from '../user/user.service';
 import { PaymentService } from '../payment/payment.service';
 import { CheckDepositStatus } from '../common/types/payment.types';
+import { ResponseUserDto } from '../user/dto/response-user.dto';
+import { Event } from '../generated/prisma/client';
 
 @Injectable()
 export class EventsService {
@@ -26,6 +29,7 @@ export class EventsService {
     private readonly ticketsService: TicketsService,
     private readonly userService: UserService,
     private readonly paymentService: PaymentService,
+    private readonly logger: Logger,
   ) {}
 
   async create(
@@ -140,68 +144,49 @@ export class EventsService {
   async registerToEvent(
     eventId: string,
     user: JwtPayload,
-    ticketTypeId?: string,
+    ticketTypeId: string,
   ) {
-    const event = await this.findOne(eventId);
-    const { user: hostUser } = await this.eventUsersService.findHost(eventId);
-    const attendeeUser = await this.userService.findOne(user.sub);
+    const { attendee, event, currentUser, hostUser } =
+      await this.prisma.$transaction(async (tx) => {
+        const event = await tx.event.findUnique({
+          where: { id: eventId },
+          include: { participants: { include: { user: true } } },
+        });
 
-    const ticketPath = await this.ticketsService.createEventPdfTicket(
-      event,
-      hostUser,
-      attendeeUser,
-    );
+        if (!event) throw new NotFoundException('Event not found!');
+        const currentUser = await tx.user.findUnique({
+          where: { id: user.sub },
+        });
 
-    const attendee = await this.eventUsersService.create({
-      eventId: event.id,
-      userId: user.sub,
-      role: EventRole.ATTENDEE,
-      ticketUrl: ticketPath,
-      ticketTypeId,
-      isPaid: false,
-    });
+        const host = event.participants.find(
+          (participant) => participant.role === EventRole.HOST,
+        );
+        if (!host) throw new NotFoundException('Host not found!');
+        const hostUser = host.user;
 
-    if (attendee.ticketTypeId && event.eventType === 'PAID') {
-      const ticketType = await this.prisma.ticketType.findUnique({
-        where: { id: attendee.ticketTypeId },
+        if (!currentUser) throw new NotFoundException('User not found!');
+
+        const attendee = await tx.eventUser.create({
+          data: {
+            eventId: event.id,
+            userId: currentUser.id,
+            role: EventRole.ATTENDEE,
+            joinedAt: new Date(),
+          },
+        });
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        await tx.ticket.create({
+          data: {
+            eventId: event.id,
+            ticketTypeId: ticketTypeId,
+            userId: currentUser.id,
+          },
+        });
+        return { attendee, event, currentUser, hostUser };
       });
-      if (!ticketType) throw new NotFoundException('Ticket type not found!');
-      const requestPayment = await this.paymentService.processTicketPayment(
-        attendee.eventId + attendee.userId,
-        ticketType.price.toString(),
-        '242063456789',
-      );
+    void this.sendRegistrationTicket(event, hostUser, currentUser);
 
-      const confirmPayment = await this.paymentService.checkDepositStatus(
-        requestPayment.depositId,
-      );
-      const isPaid =
-        confirmPayment.status === 'FOUND'
-          ? confirmPayment.data.status === CheckDepositStatus.COMPLETED
-          : false;
-
-      await this.prisma.eventUser.update({
-        where: {
-          userId_eventId: { userId: user.sub, eventId },
-          depositId: requestPayment.depositId,
-        },
-        data: {
-          isPaid,
-        },
-      });
-    }
-
-    await this.emailsService.sendEventRegistrationEmail(
-      user.email,
-      event.title,
-      attendeeUser.name,
-      event.id,
-      [{ filename: 'ticket.pdf', path: ticketPath }],
-    );
-
-    return this.prisma.eventUser.findUnique({
-      where: { userId_eventId: { userId: user.sub, eventId } },
-    });
+    return attendee;
   }
 
   async cancelRegistration(eventId: string, user: JwtPayload) {
@@ -224,5 +209,31 @@ export class EventsService {
 
   async findAllAttendees(id: string) {
     return await this.eventUsersService.findEventAttendees(id);
+  }
+
+  private async sendRegistrationTicket(
+    event: Event,
+    hostUser: Pick<ResponseUserDto, 'avatarUrl' | 'name'>,
+    attendeeUser: Pick<ResponseUserDto, 'email' | 'name' | 'id'>,
+  ) {
+    try {
+      const ticketPath = await this.ticketsService.createEventPdfTicket(
+        event,
+        hostUser,
+        attendeeUser,
+      );
+      await this.emailsService.sendEventRegistrationEmail(
+        attendeeUser.email,
+        event.title,
+        attendeeUser.name,
+        event.id,
+        [{ filename: `ticket_${attendeeUser.id}.pdf`, path: ticketPath }],
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send registration ticket for event ${event.id} to user ${attendeeUser.id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 }

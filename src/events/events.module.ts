@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { EventsController } from './events.controller';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,7 +10,7 @@ import { UserModule } from '../user/user.module';
 import { PaymentModule } from '../payment/payment.module';
 
 @Module({
-  providers: [EventsService, PrismaService, FilesService],
+  providers: [EventsService, PrismaService, FilesService, Logger],
   controllers: [EventsController],
   imports: [
     EventUsersModule,

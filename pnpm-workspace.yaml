@@ -4,4 +4,6 @@ allowBuilds:
   '@scarf/scarf': false
   bcrypt: false
   prisma: false
+  puppeteer: true
+  sharp: true
   unrs-resolver: false

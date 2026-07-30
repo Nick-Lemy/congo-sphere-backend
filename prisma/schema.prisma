@@ -72,7 +72,7 @@ model Ticket {
   userId       String
   eventId      String
   ticketTypeId String
-  ticketUrl    String
+  ticketUrl    String?
   isPaid       Boolean    @default(false)
   createdAt    DateTime   @default(now())
   eventUser    EventUser  @relation(fields: [userId, eventId], references: [userId, eventId])
