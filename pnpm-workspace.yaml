@@ -3,6 +3,7 @@ allowBuilds:
   '@prisma/engines': false
   '@scarf/scarf': false
   bcrypt: false
+  msgpackr-extract: set this to true or false
   prisma: false
   puppeteer: true
   sharp: true
