@@ -145,7 +145,7 @@ export class EventsService {
     user: JwtPayload,
     ticketTypeId: string,
   ) {
-    const { attendee, event, currentUser, hostUser } =
+    const { attendee, event, currentUser, hostUser, ticketId } =
       await this.prisma.$transaction(async (tx) => {
         const event = await tx.event.findUnique({
           where: { id: eventId },
@@ -173,17 +173,16 @@ export class EventsService {
             joinedAt: new Date(),
           },
         });
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        await tx.ticket.create({
+        const { id: ticketId } = await tx.ticket.create({
           data: {
             eventId: event.id,
             ticketTypeId: ticketTypeId,
             userId: currentUser.id,
           },
         });
-        return { attendee, event, currentUser, hostUser };
+        return { attendee, event, currentUser, hostUser, ticketId };
       });
-    void this.sendRegistrationTicket(event, hostUser, currentUser);
+    void this.sendRegistrationTicket(event, hostUser, currentUser, ticketId);
 
     return attendee;
   }
@@ -214,6 +213,7 @@ export class EventsService {
     event: Event,
     hostUser: Pick<ResponseUserDto, 'avatarUrl' | 'name'>,
     attendeeUser: Pick<ResponseUserDto, 'email' | 'name' | 'id'>,
+    ticketId?: string,
   ) {
     try {
       const ticketPath = await this.ticketsService.createEventPdfTicket(
@@ -221,6 +221,10 @@ export class EventsService {
         hostUser,
         attendeeUser,
       );
+      await this.prisma.ticket.update({
+        where: { id: ticketId },
+        data: { ticketUrl: ticketPath },
+      });
       await this.emailsService.sendEventRegistrationEmail(
         attendeeUser.email,
         event.title,
@@ -229,9 +233,11 @@ export class EventsService {
         [{ filename: `ticket_${attendeeUser.id}.pdf`, path: ticketPath }],
       );
     } catch (error) {
+      const errMsg: string =
+        error instanceof Error ? (error.stack ?? error.message) : String(error);
       this.logger.error(
         `Failed to send registration ticket for event ${event.id} to user ${attendeeUser.id}`,
-        error instanceof Error ? error.stack : String(error),
+        errMsg,
       );
     }
   }
