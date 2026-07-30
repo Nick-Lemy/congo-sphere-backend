@@ -6,6 +6,7 @@ COPY package*.json pnpm-lock.yaml ./
 RUN pnpm install
 
 COPY . .
+RUN pnpm prisma generate
 RUN pnpm build
 
 FROM node:24-alpine AS runner
