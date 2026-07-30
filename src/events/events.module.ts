@@ -8,9 +8,17 @@ import { EmailsModule } from '../emails/emails.module';
 import { TicketsModule } from '../tickets/tickets.module';
 import { UserModule } from '../user/user.module';
 import { PaymentModule } from '../payment/payment.module';
+import { BullModule } from '@nestjs/bullmq';
+import { RegistrationTicketProcessor } from './registration-ticket.processor';
 
 @Module({
-  providers: [EventsService, PrismaService, FilesService, Logger],
+  providers: [
+    EventsService,
+    PrismaService,
+    FilesService,
+    Logger,
+    RegistrationTicketProcessor,
+  ],
   controllers: [EventsController],
   imports: [
     EventUsersModule,
@@ -18,6 +26,9 @@ import { PaymentModule } from '../payment/payment.module';
     TicketsModule,
     UserModule,
     PaymentModule,
+    BullModule.registerQueue({
+      name: 'registration-ticket',
+    }),
   ],
 })
 export class EventsModule {}

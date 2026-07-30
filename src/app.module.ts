@@ -13,11 +13,27 @@ import { EmailsModule } from './emails/emails.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { ConfigModule } from '@nestjs/config';
 import { PaymentModule } from './payment/payment.module';
+import { BullModule } from '@nestjs/bullmq';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true, // Makes ConfigService available everywhere
+    }),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST,
+        port: Number(process.env.REDIS_PORT ?? 6379),
+      },
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: { age: 3600, count: 100 },
+        removeOnFail: { age: 86400 },
+      },
     }),
     UserModule,
     AuthModule,
