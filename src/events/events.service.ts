@@ -15,7 +15,6 @@ import { EmailsService } from '../emails/emails.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { UserService } from '../user/user.service';
 import { PaymentService } from '../payment/payment.service';
-import { CheckDepositStatus } from '../common/types/payment.types';
 import { ResponseUserDto } from '../user/dto/response-user.dto';
 import { Event } from '../generated/prisma/client';
 
