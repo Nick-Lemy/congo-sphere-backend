@@ -1,12 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Event } from '../generated/prisma/client';
 import { ResponseUserDto } from '../user/dto/response-user.dto';
 import puppeteer from 'puppeteer';
 import { FilesService } from '../files/files.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class TicketsService {
-  constructor(private readonly filesService: FilesService) {}
+  constructor(
+    private readonly filesService: FilesService,
+    private readonly prisma: PrismaService,
+  ) {}
   private eventTicketTemplate = (
     event: Event,
     host: Pick<ResponseUserDto, 'avatarUrl' | 'name'>,
@@ -170,5 +178,57 @@ export class TicketsService {
       `${event.title}-ticket.pdf`,
     );
     return ticketPath;
+  }
+
+  async getTickets(userId?: string, eventId?: string) {
+    if (eventId) {
+      const event = await this.prisma.event.findUnique({
+        where: { id: eventId },
+      });
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
+    }
+
+    if (userId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+    }
+
+    const tickets = await this.prisma.ticket.findMany({
+      where: {
+        userId: userId,
+        eventId: eventId,
+      },
+    });
+
+    return tickets;
+  }
+
+  async getTicketById(userId: string, ticketId: string) {
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+    if (!currentUser) {
+      throw new NotFoundException('User not found');
+    }
+    const isAdmin = currentUser?.role === 'ADMIN';
+    const isTicketOwner = ticket?.userId === userId;
+    if (!isAdmin && !isTicketOwner) {
+      throw new UnauthorizedException(
+        'You do not have permission to access this ticket',
+      );
+    }
+    return ticket;
   }
 }

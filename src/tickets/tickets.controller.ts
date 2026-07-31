@@ -1,7 +1,76 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { TicketsService } from './tickets.service';
+import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { AuthGuard } from '../auth/auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { type JwtPayload } from '../common/types/jtw.type';
+import { AdminGuard } from '../auth/admin.guard';
 
 @Controller('tickets')
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
+
+  @ApiOperation({
+    summary: 'Get all tickets by userId and eventId',
+    description: 'Returns a list of all tickets',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of tickets retrieved successfully',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+  })
+  @Get('')
+  @ApiBearerAuth()
+  @UseGuards(AdminGuard)
+  findAll(@Query('userId') userId: string, @Query('eventId') eventId: string) {
+    return this.ticketsService.getTickets(userId, eventId);
+  }
+
+  @ApiOperation({
+    summary: 'Get all tickets by userId and eventId',
+    description: 'Returns a list of all tickets',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of tickets retrieved successfully',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+  })
+  @Get('my-tickets')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  findMyTickets(
+    @Query('eventId') eventId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.ticketsService.getTickets(user.sub, eventId);
+  }
+
+  @ApiOperation({
+    summary: 'Get a ticket by ID',
+    description: 'Returns a ticket by its ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Ticket retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Ticket not found',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error',
+  })
+  @Get(':id')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.ticketsService.getTicketById(user.sub, id);
+  }
 }
