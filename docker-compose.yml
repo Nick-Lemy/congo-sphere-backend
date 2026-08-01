@@ -16,7 +16,6 @@ services:
 
   migrate:
     profiles: ['prod']
-    # Pulled from GHCR in CI; `build` is the local-dev fallback.
     image: ${MIGRATE_IMAGE:-congo-sphere-migrate:local}
     build:
       context: .
@@ -37,9 +36,6 @@ services:
     container_name: congo-sphere-backend
     restart: unless-stopped
     env_file: .env
-    # Loopback only — Caddy reaches this over the compose network.
-    # Docker publishes ports via its own iptables chain, which bypasses ufw,
-    # so binding to 127.0.0.1 is what actually keeps :3000 off the internet.
     ports:
       - '127.0.0.1:3000:3000'
     depends_on:
@@ -65,7 +61,5 @@ services:
 
 volumes:
   redis_data:
-  # Holds the Let's Encrypt certificates — do not delete, or you risk
-  # hitting the ACME rate limit (50 certs per domain per week).
   caddy_data:
   caddy_config:

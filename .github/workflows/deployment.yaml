@@ -22,7 +22,7 @@ jobs:
       - name: Compute image names
         id: names
         run: |
-          REPO="${GITHUB_REPOSITORY,,}"          # GHCR requires lowercase
+          REPO="${GITHUB_REPOSITORY,,}"
           TAG="${GITHUB_SHA::7}"
           echo "app_image=ghcr.io/${REPO}:${TAG}" >> "$GITHUB_OUTPUT"
           echo "migrate_image=ghcr.io/${REPO}-migrate:${TAG}" >> "$GITHUB_OUTPUT"
@@ -99,7 +99,6 @@ jobs:
               git clone --branch main "$REPO_URL" "$REPO_DIR" && cd "$REPO_DIR"
             fi
 
-            # Write .env from secrets
             cat > .env <<EOF
             PORT=3000
             APP_IMAGE=${APP_IMAGE}
@@ -118,12 +117,9 @@ jobs:
             EMAIL_PORT=${EMAIL_PORT}
             EOF
 
-            # Pull prebuilt images (no building on this box)
             echo "${GHCR_TOKEN}" | sudo docker login ghcr.io -u "${GHCR_USER}" --password-stdin
             sudo docker compose --profile prod pull
 
-            # `migrate` gates the app, so surface its logs when the stack
-            # fails to come up — otherwise the cause is invisible here.
             if ! sudo docker compose --profile prod up -d --no-build; then
               echo "--- migrate logs ---"
               sudo docker compose logs --tail=50 migrate || true

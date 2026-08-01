@@ -6,10 +6,6 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    // Must stay in its own config object with no other keys — that is what
-    // makes it a global ignore. Combined with `languageOptions` it only
-    // scopes that block, and the files still get linted by earlier configs
-    // without type information.
     ignores: [
       'eslint.config.mjs',
       '**/dist/**',

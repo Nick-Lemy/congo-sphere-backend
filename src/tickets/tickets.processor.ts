@@ -73,10 +73,6 @@ export class TicketGenerationProcessor extends WorkerHost {
     );
   }
 
-  /**
-   * Remote images are best-effort: a broken URL or an unsupported format
-   * (PDFKit only reads JPEG/PNG) must not fail the whole ticket.
-   */
   private async fetchImage(url?: string | null): Promise<Buffer | null> {
     if (!url) return null;
     try {
@@ -119,8 +115,6 @@ export class TicketGenerationProcessor extends WorkerHost {
     const cardX = 40;
     const cardY = 60;
     const cardWidth = doc.page.width - cardX * 2;
-    // Shorter card when there is no cover image, so the ticket does not
-    // render as a mostly-empty box.
     const cardHeight = cover ? 430 : 300;
     const sideWidth = 160;
     const mainWidth = cardWidth - sideWidth;
@@ -131,7 +125,6 @@ export class TicketGenerationProcessor extends WorkerHost {
     doc.rect(0, 0, doc.page.width, doc.page.height).fill('#f4f7f6');
     doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 12).fill('#ffffff');
 
-    // Side panel background, clipped to keep the card's rounded corners.
     doc.save();
     doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 12).clip();
     doc.rect(cardX + mainWidth, cardY, sideWidth, cardHeight).fill('#fcfcfc');
@@ -180,8 +173,6 @@ export class TicketGenerationProcessor extends WorkerHost {
       lineGap: 2,
     });
 
-    // Info row pinned to the bottom of the card so a long description
-    // cannot push it off the ticket.
     const infoY = cardY + cardHeight - pad - 46;
     const colWidth = (contentWidth - 20) / 2;
     const hostX = mainX + colWidth + 20;
@@ -228,7 +219,6 @@ export class TicketGenerationProcessor extends WorkerHost {
         width: colWidth - (hostNameX - hostX),
       });
 
-    // Tear-off divider
     doc
       .save()
       .dash(4, { space: 4 })
@@ -242,7 +232,6 @@ export class TicketGenerationProcessor extends WorkerHost {
 
     const sideCenter = cardX + mainWidth + sideWidth / 2;
     const qrSize = 116;
-    // Vertically centre the QR block within whatever card height we chose.
     const qrTop = cardY + (cardHeight - (qrSize + 44)) / 2;
     doc.image(qr, sideCenter - qrSize / 2, qrTop, {
       fit: [qrSize, qrSize],

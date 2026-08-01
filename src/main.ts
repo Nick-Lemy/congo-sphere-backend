@@ -8,8 +8,6 @@ import 'dotenv/config';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Behind the Caddy reverse proxy: read X-Forwarded-For/Proto so client IPs
-  // and protocol are the real ones, not Caddy's container address.
   app.set('trust proxy', 1);
 
   app.enableCors();
