@@ -9,7 +9,7 @@ import { TicketsModule } from '../tickets/tickets.module';
 import { UserModule } from '../user/user.module';
 import { PaymentModule } from '../payment/payment.module';
 import { BullModule } from '@nestjs/bullmq';
-import { RegistrationTicketProcessor } from './registration-ticket.processor';
+import { RegistrationTicketProcessor } from '../tickets/tickets.processor';
 
 @Module({
   providers: [

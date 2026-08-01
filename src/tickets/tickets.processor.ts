@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailsService } from '../emails/emails.service';
-import { TicketsService } from '../tickets/tickets.service';
+import { TicketsService } from './tickets.service';
 import { Job } from 'bullmq';
 
 export interface RegistrationTicketJob {

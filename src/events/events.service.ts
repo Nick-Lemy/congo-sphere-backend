@@ -16,7 +16,7 @@ import { TicketsService } from '../tickets/tickets.service';
 import { UserService } from '../user/user.service';
 import { PaymentService } from '../payment/payment.service';
 import { InjectQueue } from '@nestjs/bullmq';
-import { RegistrationTicketJob } from './registration-ticket.processor';
+import { RegistrationTicketJob } from '../tickets/tickets.processor';
 import { Queue } from 'bullmq';
 
 @Injectable()
