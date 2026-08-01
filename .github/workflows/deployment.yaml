@@ -32,22 +32,22 @@ jobs:
           envs: DATABASE_URL,JWT_SECRET,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET,CLOUDINARY_URL,EMAIL_USER,EMAIL_HOST,EMAIL_PASS,EMAIL_PORT
           script: |
 
-
+            set -e
             REPO_DIR="$HOME/congo-sphere-backend"
             REPO_URL="https://github.com/${{ github.repository }}.git"
 
             if [ -d "$REPO_DIR/.git" ]; then
-              cd "$REPO_DIR"
-              git pull origin main
+              cd "$REPO_DIR" && git pull origin main
             else
-              git clone --branch main "$REPO_URL" "$REPO_DIR"
-              cd "$REPO_DIR"
+              git clone --branch main "$REPO_URL" "$REPO_DIR" && cd "$REPO_DIR"
             fi
 
-            # ── Write .env from secrets ──────────────────────────────────────
+            # Write .env from secrets
             cat > .env <<EOF
             PORT=3000
             DATABASE_URL=${DATABASE_URL}
+            REDIS_HOST=redis
+            REDIS_PORT=6379
             JWT_SECRET=${JWT_SECRET}
             CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
             CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
@@ -59,34 +59,15 @@ jobs:
             EMAIL_PORT=${EMAIL_PORT}
             EOF
 
-            # ── Build ────────────────────────────────────────────────────────
-            sudo docker build -t congo-sphere .
+            # Build
+            sudo docker compose --profile prod up -d --build
 
-            # ── Swap container (zero-downtime swap) ──────────────────────────
-            sudo docker stop congo-sphere-old 2>/dev/null || true
-            sudo docker rm congo-sphere-old 2>/dev/null || true
-            sudo docker rename congo-sphere congo-sphere-old 2>/dev/null || true
-
-            sudo docker run -d \
-              --name congo-sphere \
-              --restart unless-stopped \
-              --env-file .env \
-              -p 3000:3000 \
-              congo-sphere
-
-            # Verify new container started before removing old one
-            sleep 3
-            if sudo docker ps --filter "name=congo-sphere" --filter "status=running" | grep -q congo-sphere; then
-              sudo docker stop congo-sphere-old 2>/dev/null || true
-              sudo docker rm congo-sphere-old 2>/dev/null || true
-            else
-              echo "New container failed to start, rolling back..."
-              sudo docker stop congo-sphere 2>/dev/null || true
-              sudo docker rm congo-sphere 2>/dev/null || true
-              sudo docker rename congo-sphere-old congo-sphere 2>/dev/null || true
-              sudo docker start congo-sphere
+            sleep 5
+            if ! sudo docker compose ps --status running --services | grep -q '^app$'; then
+              echo "App container failed to start, rolling back..."
+              sudo docker compose logs --tail=50 app
               exit 1
             fi
 
-            # ── Cleanup dangling images ──────────────────────────────────────
+            # Cleanup unused images
             sudo docker image prune -f

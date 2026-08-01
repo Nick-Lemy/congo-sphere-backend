@@ -1,33 +1,11 @@
 services:
-  postgres:
-    image: postgres:latest
-    container_name: congo-sphere-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-congo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-congo}
-      POSTGRES_DB: ${POSTGRES_DB:-congo_sphere}
-    ports:
-      - '${POSTGRES_PORT:-5432}:5432'
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'pg_isready -U ${POSTGRES_USER:-congo} -d ${POSTGRES_DB:-congo_sphere}',
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   redis:
     image: redis:8-alpine
     container_name: congo-sphere-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory-policy noeviction
     ports:
-      - '${REDIS_PORT:-6379}:6379'
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -35,6 +13,31 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  migrate:
+    profiles: ['prod']
+    build:
+      context: .
+      target: builder
+    container_name: congo-sphere-migrate
+    command: pnpm prisma migrate deploy
+    env_file: .env
+    restart: 'no'
+
+  app:
+    profiles: ['prod']
+    build:
+      context: .
+    container_name: congo-sphere-backend
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - '3000:3000'
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
 volumes:
-  postgres_data:
   redis_data:
