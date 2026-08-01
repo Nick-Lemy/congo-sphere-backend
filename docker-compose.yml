@@ -37,13 +37,35 @@ services:
     container_name: congo-sphere-backend
     restart: unless-stopped
     env_file: .env
+    # Loopback only — Caddy reaches this over the compose network.
+    # Docker publishes ports via its own iptables chain, which bypasses ufw,
+    # so binding to 127.0.0.1 is what actually keeps :3000 off the internet.
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
     depends_on:
       redis:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
 
+  caddy:
+    profiles: ['prod']
+    image: caddy:2-alpine
+    container_name: congo-sphere-caddy
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
 volumes:
   redis_data:
+  # Holds the Let's Encrypt certificates — do not delete, or you risk
+  # hitting the ACME rate limit (50 certs per domain per week).
+  caddy_data:
+  caddy_config:

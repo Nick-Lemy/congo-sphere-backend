@@ -2,10 +2,15 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import 'dotenv/config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Behind the Caddy reverse proxy: read X-Forwarded-For/Proto so client IPs
+  // and protocol are the real ones, not Caddy's container address.
+  app.set('trust proxy', 1);
 
   app.enableCors();
   app.useGlobalPipes(
