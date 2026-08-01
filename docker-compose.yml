@@ -16,8 +16,11 @@ services:
 
   migrate:
     profiles: ['prod']
+    # Pulled from GHCR in CI; `build` is the local-dev fallback.
+    image: ${MIGRATE_IMAGE:-congo-sphere-migrate:local}
     build:
       context: .
+      dockerfile: dockerfile
       target: builder
     container_name: congo-sphere-migrate
     command: pnpm prisma migrate deploy
@@ -26,8 +29,11 @@ services:
 
   app:
     profiles: ['prod']
+    image: ${APP_IMAGE:-congo-sphere-app:local}
     build:
       context: .
+      dockerfile: dockerfile
+      target: runner
     container_name: congo-sphere-backend
     restart: unless-stopped
     env_file: .env

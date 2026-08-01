@@ -4,7 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EmailsService } from '../emails/emails.service';
 import { Job } from 'bullmq';
 import { ResponseUserDto } from '../user/dto/response-user.dto';
-import puppeteer from 'puppeteer/lib/esm/puppeteer/puppeteer.js';
+import PDFDocument from 'pdfkit';
+import QRCode from 'qrcode';
 import { FilesService } from '../files/files.service';
 import { Event } from '../generated/prisma/client';
 
@@ -71,168 +72,205 @@ export class TicketGenerationProcessor extends WorkerHost {
       `Ticket generated for user ${userId} for event ${eventId}.`,
     );
   }
-  private eventTicketTemplate = (
-    event: Event,
-    host: Pick<ResponseUserDto, 'avatarUrl' | 'name'>,
-    attendee: Pick<ResponseUserDto, 'name' | 'email' | 'id'>,
-  ) => {
-    return `
-        <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body {
-          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-          background-color: #f4f7f6;
-          margin: 0;
-          padding: 40px;
-          color: #333;
-        }
-        .ticket-wrapper {
-          display: flex;
-          background: #ffffff;
-          border-radius: 12px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-          max-width: 800px;
-          margin: 0 auto;
-          overflow: hidden;
-        }
-        .ticket-main {
-          padding: 40px;
-          flex: 1;
-          border-right: 2px dashed #ddd; /* Tear-off effect */
-        }
-        .ticket-side {
-          padding: 40px 30px;
-          background-color: #fcfcfc;
-          width: 200px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-        }
-        .event-image {
-          width: 100%;
-          height: 180px;
-          object-fit: cover;
-          border-radius: 8px;
-          margin-bottom: 20px;
-        }
-        h1.title {
-          font-size: 28px;
-          color: #222;
-          margin-bottom: 5px;
-          margin-top: 0;
-        }
-        .location, .dates {
-          font-size: 14px;
-          color: #777;
-          margin-bottom: 5px;
-        }
-        .description {
-          font-size: 15px;
-          color: #555;
-          margin-top: 20px;
-          margin-bottom: 30px;
-          line-height: 1.5;
-        }
-        .info-grid {
-          display: flex;
-          gap: 40px;
-        }
-        .info-block {
-          display: flex;
-          flex-direction: column;
-        }
-        .info-label {
-          font-size: 12px;
-          text-transform: uppercase;
-          color: #888;
-          font-weight: bold;
-          margin-bottom: -5px;
-        }
-        .host-avatar {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          border: 2px solid #ddd;
-          margin-right: 10px;
-          vertical-align: middle;
-        }
-        .qr-placeholder {
-          width: 140px;
-          height: 140px;
-          background: #eee;
-          border: 1px solid #ccc;
-          margin-bottom: 15px;
-        }
-        .ticket-id {
-          font-size: 12px;
-          color: #999;
-          letter-spacing: 1px;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="ticket-wrapper">
-        <div class="ticket-main">
-          ${event.imageUrl ? `<img src="${event.imageUrl}" alt="Event Cover" class="event-image">` : ''}
-          <h1 class="title">${event.title}</h1>
-          <div class="dates">🗓️ ${String(event.startDate)} - ${String(event.endDate)}</div>
-          <div class="location">📍 ${event.location}</div>
-          
-          <div class="description">
-            ${event.description}
-          </div>
 
-          <div class="info-grid">
-            <div class="info-block">
-              <span class="info-label">Participant</span>
-              <p><strong>${attendee.name}</strong><br><span style="font-size:13px; color:#555;">${attendee.email}</span></p>
-            </div>
-            <div class="info-block">
-              <span class="info-label">Organisé par</span>
-              <p>
-                ${host.avatarUrl ? `<img src="${host.avatarUrl}" class="host-avatar">` : ''}
-                <strong>${host.name}</strong>
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div class="ticket-side">
-          <!-- Placeholder for an actual QR Code if you implement one -->
-          <div class="qr-placeholder">
-             <!-- An image tag pointing to a dynamic QR generator can go here -->
-             <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${event.id}---${attendee.email}" alt="QR Code" width="140" height="140">
-          </div>
-          <div>Billet Classique</div>
-          <div class="ticket-id">ID: ${(attendee.id + event.id).slice(0, 8)}</div>
-        </div>
-      </div>
-    </body>
-    </html>
-    `;
-  };
+  /**
+   * Remote images are best-effort: a broken URL or an unsupported format
+   * (PDFKit only reads JPEG/PNG) must not fail the whole ticket.
+   */
+  private async fetchImage(url?: string | null): Promise<Buffer | null> {
+    if (!url) return null;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      return Buffer.from(await response.arrayBuffer());
+    } catch {
+      return null;
+    }
+  }
+
+  private formatDate(date: Date) {
+    return new Intl.DateTimeFormat('fr-FR', {
+      dateStyle: 'long',
+      timeStyle: 'short',
+    }).format(new Date(date));
+  }
 
   private async createEventPdfTicket(
     event: Event,
     host: Pick<ResponseUserDto, 'avatarUrl' | 'name'>,
     attendee: Pick<ResponseUserDto, 'name' | 'email' | 'id'>,
   ) {
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    const content = this.eventTicketTemplate(event, host, attendee);
-    await page.setContent(content);
-    const ticket = await page.pdf({ format: 'A4' });
-    await browser.close();
+    const [cover, avatar, qr] = await Promise.all([
+      this.fetchImage(event.imageUrl),
+      this.fetchImage(host.avatarUrl),
+      QRCode.toBuffer(`${event.id}---${attendee.email}`, {
+        width: 240,
+        margin: 1,
+      }),
+    ]);
 
-    const ticketPath = await this.filesService.uploadPdf(
-      Buffer.from(ticket),
+    const doc = new PDFDocument({ size: 'A4', margin: 0 });
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    const finished = new Promise<Buffer>((resolve) =>
+      doc.on('end', () => resolve(Buffer.concat(chunks))),
+    );
+
+    const cardX = 40;
+    const cardY = 60;
+    const cardWidth = doc.page.width - cardX * 2;
+    // Shorter card when there is no cover image, so the ticket does not
+    // render as a mostly-empty box.
+    const cardHeight = cover ? 430 : 300;
+    const sideWidth = 160;
+    const mainWidth = cardWidth - sideWidth;
+    const pad = 28;
+    const mainX = cardX + pad;
+    const contentWidth = mainWidth - pad * 2;
+
+    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#f4f7f6');
+    doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 12).fill('#ffffff');
+
+    // Side panel background, clipped to keep the card's rounded corners.
+    doc.save();
+    doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 12).clip();
+    doc.rect(cardX + mainWidth, cardY, sideWidth, cardHeight).fill('#fcfcfc');
+    doc.restore();
+
+    let y = cardY + pad;
+
+    if (cover) {
+      doc.save();
+      try {
+        doc.roundedRect(mainX, y, contentWidth, 120, 8).clip();
+        doc.image(cover, mainX, y, { cover: [contentWidth, 120] });
+        y += 140;
+      } catch {
+        this.logger.warn(`Unsupported cover image for event ${event.id}`);
+      }
+      doc.restore();
+    }
+
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(22)
+      .fillColor('#222')
+      .text(event.title, mainX, y, { width: contentWidth });
+    y = doc.y + 8;
+
+    doc
+      .font('Helvetica')
+      .fontSize(10)
+      .fillColor('#777')
+      .text(
+        `Date : ${this.formatDate(event.startDate)} - ${this.formatDate(event.endDate)}`,
+        mainX,
+        y,
+        { width: contentWidth },
+      );
+    doc.text(`Lieu : ${event.location}`, mainX, doc.y + 2, {
+      width: contentWidth,
+    });
+    y = doc.y + 14;
+
+    doc.fontSize(11).fillColor('#555').text(event.description, mainX, y, {
+      width: contentWidth,
+      height: 80,
+      ellipsis: true,
+      lineGap: 2,
+    });
+
+    // Info row pinned to the bottom of the card so a long description
+    // cannot push it off the ticket.
+    const infoY = cardY + cardHeight - pad - 46;
+    const colWidth = (contentWidth - 20) / 2;
+    const hostX = mainX + colWidth + 20;
+
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(8)
+      .fillColor('#888')
+      .text('PARTICIPANT', mainX, infoY, { width: colWidth });
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(12)
+      .fillColor('#333')
+      .text(attendee.name, mainX, infoY + 14, { width: colWidth });
+    doc
+      .font('Helvetica')
+      .fontSize(9)
+      .fillColor('#555')
+      .text(attendee.email, mainX, doc.y + 1, { width: colWidth });
+
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(8)
+      .fillColor('#888')
+      .text('ORGANISÉ PAR', hostX, infoY, { width: colWidth });
+
+    let hostNameX = hostX;
+    if (avatar) {
+      doc.save();
+      try {
+        doc.circle(hostX + 14, infoY + 28, 14).clip();
+        doc.image(avatar, hostX, infoY + 14, { cover: [28, 28] });
+        hostNameX = hostX + 36;
+      } catch {
+        this.logger.warn(`Unsupported avatar image for event ${event.id}`);
+      }
+      doc.restore();
+    }
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(12)
+      .fillColor('#333')
+      .text(host.name, hostNameX, infoY + 20, {
+        width: colWidth - (hostNameX - hostX),
+      });
+
+    // Tear-off divider
+    doc
+      .save()
+      .dash(4, { space: 4 })
+      .moveTo(cardX + mainWidth, cardY + 12)
+      .lineTo(cardX + mainWidth, cardY + cardHeight - 12)
+      .lineWidth(1)
+      .strokeColor('#ddd')
+      .stroke()
+      .undash()
+      .restore();
+
+    const sideCenter = cardX + mainWidth + sideWidth / 2;
+    const qrSize = 116;
+    // Vertically centre the QR block within whatever card height we chose.
+    const qrTop = cardY + (cardHeight - (qrSize + 44)) / 2;
+    doc.image(qr, sideCenter - qrSize / 2, qrTop, {
+      fit: [qrSize, qrSize],
+    });
+    doc
+      .font('Helvetica')
+      .fontSize(11)
+      .fillColor('#333')
+      .text('Billet Classique', cardX + mainWidth, qrTop + qrSize + 14, {
+        width: sideWidth,
+        align: 'center',
+      });
+    doc
+      .fontSize(9)
+      .fillColor('#999')
+      .text(
+        `ID: ${(attendee.id + event.id).slice(0, 8).toUpperCase()}`,
+        cardX + mainWidth,
+        doc.y + 4,
+        { width: sideWidth, align: 'center' },
+      );
+
+    doc.end();
+    const buffer = await finished;
+
+    return this.filesService.uploadPdf(
+      buffer,
       `${event.id}-${attendee.id}-ticket.pdf`,
     );
-    return ticketPath;
   }
 }

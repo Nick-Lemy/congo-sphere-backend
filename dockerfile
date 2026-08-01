@@ -10,10 +10,7 @@ RUN pnpm prisma generate
 RUN pnpm build
 
 FROM node:24-alpine AS runner
-RUN apk add --no-cache pnpm chromium nss freetype harfbuzz ca-certificates ttf-freefont
-ENV PUPPETEER_SKIP_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-
+RUN apk add --no-cache pnpm
 WORKDIR /app
 
 COPY package*.json pnpm-lock.yaml pnpm-workspace.yaml ./
