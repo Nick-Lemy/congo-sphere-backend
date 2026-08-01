@@ -1,23 +1,17 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { createTransport } from 'nodemailer';
+import { Injectable } from '@nestjs/common';
+
 import { EmailAttachment } from '../common/types/email.type';
+import { Queue } from 'bullmq';
+import { SendEmailJob } from './emails.processor';
+import { InjectQueue } from '@nestjs/bullmq';
 
 @Injectable()
 export class EmailsService {
-  constructor() {}
+  constructor(
+    @InjectQueue('send-email')
+    private readonly sendEmailQueue: Queue<SendEmailJob>,
+  ) {}
   private readonly WEBSITE_URL = 'www.congo-sphere.com';
-  private createEmailTransporter() {
-    return createTransport({
-      service: 'Gmail',
-      host: process.env.EEMAIL_MAIL_HOST,
-      port: Number(process.env.EMAIL_PORT),
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-  }
 
   private welcomeEmailTemplate = (username: string): string => {
     return `<!DOCTYPE html>
@@ -112,7 +106,7 @@ export class EmailsService {
   async sendWelcomeEmail(to: string, username: string) {
     const subject = 'Bienvenue sur Congo Sphere !';
     const html = this.welcomeEmailTemplate(username);
-    await this.sendEmail(to, subject, html);
+    await this.sendEmailQueue.add('send-email', { to, subject, html });
   }
 
   async sendEventRegistrationEmail(
@@ -120,7 +114,7 @@ export class EmailsService {
     eventName: string,
     username: string,
     eventId: string,
-    attachements?: EmailAttachment[],
+    attachments?: EmailAttachment[],
   ) {
     const subject = `Confirmation d'inscription à ${eventName}`;
     const html = this.eventRegistrationEmailTemplate(
@@ -128,7 +122,12 @@ export class EmailsService {
       username,
       `${this.WEBSITE_URL}/events/${eventId}`,
     );
-    await this.sendEmail(to, subject, html, attachements);
+    await this.sendEmailQueue.add('send-email', {
+      to,
+      subject,
+      html,
+      attachments,
+    });
   }
 
   async sendForgotPasswordEmail(accessToken: string, userEmail: string) {
@@ -136,27 +135,10 @@ export class EmailsService {
     const html = this.forgotPasswordEmailTemplate(
       `${this.WEBSITE_URL}/forgot-password?token=${accessToken}`,
     );
-    await this.sendEmail(userEmail, subject, html);
-  }
-
-  private async sendEmail(
-    to: string,
-    subject: string,
-    html: string,
-    attachments?: EmailAttachment[],
-  ) {
-    try {
-      const transporter = this.createEmailTransporter();
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to,
-        html,
-        subject,
-        attachments,
-      });
-    } catch (error) {
-      console.error('Error sending email:', error);
-      throw new InternalServerErrorException('Failed to send email');
-    }
+    await this.sendEmailQueue.add('send-email', {
+      to: userEmail,
+      subject,
+      html,
+    });
   }
 }

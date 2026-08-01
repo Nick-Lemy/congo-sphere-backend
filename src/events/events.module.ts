@@ -9,7 +9,7 @@ import { TicketsModule } from '../tickets/tickets.module';
 import { UserModule } from '../user/user.module';
 import { PaymentModule } from '../payment/payment.module';
 import { BullModule } from '@nestjs/bullmq';
-import { RegistrationTicketProcessor } from '../tickets/tickets.processor';
+import { TicketGenerationProcessor } from '../tickets/tickets.processor';
 
 @Module({
   providers: [
@@ -17,7 +17,7 @@ import { RegistrationTicketProcessor } from '../tickets/tickets.processor';
     PrismaService,
     FilesService,
     Logger,
-    RegistrationTicketProcessor,
+    TicketGenerationProcessor,
   ],
   controllers: [EventsController],
   imports: [
@@ -27,7 +27,7 @@ import { RegistrationTicketProcessor } from '../tickets/tickets.processor';
     UserModule,
     PaymentModule,
     BullModule.registerQueue({
-      name: 'registration-ticket',
+      name: 'ticket-generation',
     }),
   ],
 })

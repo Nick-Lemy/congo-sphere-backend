@@ -16,7 +16,7 @@ import { TicketsService } from '../tickets/tickets.service';
 import { UserService } from '../user/user.service';
 import { PaymentService } from '../payment/payment.service';
 import { InjectQueue } from '@nestjs/bullmq';
-import { RegistrationTicketJob } from '../tickets/tickets.processor';
+import { TicketGenerationJob } from '../tickets/tickets.processor';
 import { Queue } from 'bullmq';
 
 @Injectable()
@@ -29,8 +29,8 @@ export class EventsService {
     private readonly ticketsService: TicketsService,
     private readonly userService: UserService,
     private readonly paymentService: PaymentService,
-    @InjectQueue('registration-ticket')
-    private readonly registrationTicketQueue: Queue<RegistrationTicketJob>,
+    @InjectQueue('ticket-generation')
+    private readonly ticketGenerationQueue: Queue<TicketGenerationJob>,
     private readonly logger: Logger,
   ) {}
 
@@ -178,7 +178,7 @@ export class EventsService {
         });
         return { attendee, event, currentUser, ticketId };
       });
-    await this.registrationTicketQueue.add('send-ticket', {
+    await this.ticketGenerationQueue.add('send-ticket', {
       eventId: event.id,
       ticketId: ticketId,
       userId: currentUser.id,
