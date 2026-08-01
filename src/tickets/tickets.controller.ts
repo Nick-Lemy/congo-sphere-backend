@@ -5,6 +5,10 @@ import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { type JwtPayload } from '../common/types/jtw.type';
 import { AdminGuard } from '../auth/admin.guard';
+import {
+  FilterMyTicketsDto,
+  FilterTicketsDto,
+} from './dto/filters-tickets.dto';
 
 @Controller('tickets')
 export class TicketsController {
@@ -25,8 +29,8 @@ export class TicketsController {
   @Get('')
   @ApiBearerAuth()
   @UseGuards(AdminGuard)
-  findAll(@Query('userId') userId: string, @Query('eventId') eventId: string) {
-    return this.ticketsService.getTickets(userId, eventId);
+  findAll(@Query() filters: FilterTicketsDto) {
+    return this.ticketsService.getTickets(filters.userId, filters.eventId);
   }
 
   @ApiOperation({
@@ -45,10 +49,10 @@ export class TicketsController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
   findMyTickets(
-    @Query('eventId') eventId: string,
     @CurrentUser() user: JwtPayload,
+    @Query() filters: FilterMyTicketsDto,
   ) {
-    return this.ticketsService.getTickets(user.sub, eventId);
+    return this.ticketsService.getTickets(user.sub, filters.eventId);
   }
 
   @ApiOperation({
