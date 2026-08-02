@@ -64,7 +64,7 @@ export class TicketGenerationProcessor extends WorkerHost {
     await this.emailsService.sendEventRegistrationEmail(
       user.email,
       event.title,
-      event.id,
+      user.name,
       ticketPath,
     );
 

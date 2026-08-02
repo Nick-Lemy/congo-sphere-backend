@@ -4,10 +4,21 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { TicketGenerationJob } from './tickets.processor';
 
 @Injectable()
 export class TicketsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @InjectQueue('ticket-generation')
+    private readonly ticketGenerationQueue: Queue<TicketGenerationJob>,
+  ) {}
+
+  async queueTicketGeneration(job: TicketGenerationJob) {
+    return this.ticketGenerationQueue.add('send-ticket', job);
+  }
 
   async getTickets(userId?: string, eventId?: string) {
     if (eventId) {

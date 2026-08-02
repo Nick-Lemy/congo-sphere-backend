@@ -1,7 +1,6 @@
 import {
   ConflictException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,13 +10,7 @@ import { JwtPayload } from '../common/types/jtw.type';
 import { EventUsersService } from '../event-users/event-users.service';
 import { EventRole } from '../generated/prisma/enums';
 import { FilesService } from '../files/files.service';
-import { EmailsService } from '../emails/emails.service';
 import { TicketsService } from '../tickets/tickets.service';
-import { UserService } from '../user/user.service';
-import { PaymentService } from '../payment/payment.service';
-import { InjectQueue } from '@nestjs/bullmq';
-import { TicketGenerationJob } from '../tickets/tickets.processor';
-import { Queue } from 'bullmq';
 
 @Injectable()
 export class EventsService {
@@ -25,13 +18,7 @@ export class EventsService {
     private readonly prisma: PrismaService,
     private readonly eventUsersService: EventUsersService,
     private readonly filesService: FilesService,
-    private readonly emailsService: EmailsService,
     private readonly ticketsService: TicketsService,
-    private readonly userService: UserService,
-    private readonly paymentService: PaymentService,
-    @InjectQueue('ticket-generation')
-    private readonly ticketGenerationQueue: Queue<TicketGenerationJob>,
-    private readonly logger: Logger,
   ) {}
 
   async create(
@@ -178,7 +165,7 @@ export class EventsService {
         });
         return { attendee, event, currentUser, ticketId };
       });
-    await this.ticketGenerationQueue.add('send-ticket', {
+    await this.ticketsService.queueTicketGeneration({
       eventId: event.id,
       ticketId: ticketId,
       userId: currentUser.id,
