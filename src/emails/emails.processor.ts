@@ -19,7 +19,7 @@ export class SendEmailProcessor extends WorkerHost {
   private createEmailTransporter() {
     return createTransport({
       service: 'Gmail',
-      host: process.env.EEMAIL_MAIL_HOST,
+      host: process.env.EMAIL_HOST,
       port: Number(process.env.EMAIL_PORT),
       secure: true,
       auth: {
