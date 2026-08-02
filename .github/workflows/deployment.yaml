@@ -93,12 +93,14 @@ jobs:
             REPO_DIR="$HOME/congo-sphere-backend"
             REPO_URL="https://github.com/${{ github.repository }}.git"
 
+            # Sync the repo
             if [ -d "$REPO_DIR/.git" ]; then
               cd "$REPO_DIR" && git pull origin main
             else
               git clone --branch main "$REPO_URL" "$REPO_DIR" && cd "$REPO_DIR"
             fi
 
+            # Write .env from secrets
             cat > .env <<EOF
             PORT=3000
             APP_IMAGE=${APP_IMAGE}
@@ -117,9 +119,11 @@ jobs:
             EMAIL_PORT=${EMAIL_PORT}
             EOF
 
+            # Pull prebuilt images from GHCR
             echo "${GHCR_TOKEN}" | sudo docker login ghcr.io -u "${GHCR_USER}" --password-stdin
             sudo docker compose --profile prod pull
 
+            # Start the stack
             if ! sudo docker compose --profile prod up -d --no-build; then
               echo "--- migrate logs ---"
               sudo docker compose logs --tail=50 migrate || true
@@ -128,6 +132,7 @@ jobs:
               exit 1
             fi
 
+            # Verify the app is serving
             sleep 5
             if ! sudo docker compose ps --status running --services | grep -q '^app$'; then
               echo "App container failed to start:"
@@ -135,5 +140,6 @@ jobs:
               exit 1
             fi
 
+            # Cleanup
             sudo docker logout ghcr.io
             sudo docker image prune -f
