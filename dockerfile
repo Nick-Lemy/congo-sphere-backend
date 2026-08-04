@@ -14,7 +14,9 @@ RUN apk add --no-cache pnpm
 WORKDIR /app
 
 COPY package*.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --prod --ignore-scripts
+RUN pnpm install --prod --ignore-scripts \
+    && pnpm store prune \
+    && rm -rf /root/.cache /root/.local/share/pnpm/store
 
 COPY --from=builder /app/dist ./dist
 
