@@ -143,4 +143,4 @@ jobs:
 
             # Cleanup
             sudo docker logout ghcr.io
-            sudo docker image prune -f
+            sudo docker image prune -af
