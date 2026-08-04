@@ -7,7 +7,7 @@ import { ResponseUserDto } from '../user/dto/response-user.dto';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 import { FilesService } from '../files/files.service';
-import { Event } from '../generated/prisma/client';
+import { Event, EventRole } from '../generated/prisma/client';
 
 export interface TicketGenerationJob {
   eventId: string;
@@ -31,7 +31,10 @@ export class TicketGenerationProcessor extends WorkerHost {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
       include: {
-        participants: { where: { role: 'HOST' }, select: { user: true } },
+        participants: {
+          where: { role: EventRole.HOST },
+          select: { user: true },
+        },
       },
     });
     if (!event)

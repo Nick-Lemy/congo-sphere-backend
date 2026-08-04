@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEventUsersDto } from './dto/create-event-users.dto';
+import { EventRole } from '../generated/prisma/client';
 
 @Injectable()
 export class EventUsersService {
@@ -37,7 +38,7 @@ export class EventUsersService {
 
   async findHost(eventId: string) {
     const host = await this.prisma.eventUser.findFirst({
-      where: { eventId, role: 'HOST' },
+      where: { eventId, role: EventRole.HOST },
       select: {
         user: {
           select: { id: true, name: true, email: true, avatarUrl: true },
