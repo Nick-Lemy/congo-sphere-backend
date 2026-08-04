@@ -16,7 +16,14 @@ WORKDIR /app
 COPY package*.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --ignore-scripts \
     && pnpm store prune \
-    && rm -rf /root/.cache /root/.local/share/pnpm/store
+    && rm -rf /root/.cache /root/.local/share/pnpm/store \
+    && rm -rf node_modules/.pnpm/prisma@* \
+              node_modules/.pnpm/@prisma+studio-core* \
+              node_modules/.pnpm/@prisma+dev* \
+              node_modules/.pnpm/@electric-sql+pglite* \
+              node_modules/.pnpm/effect@* \
+              node_modules/.pnpm/typescript@* \
+              node_modules/.pnpm/prettier@*
 
 COPY --from=builder /app/dist ./dist
 
