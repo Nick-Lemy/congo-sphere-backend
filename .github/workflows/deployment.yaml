@@ -87,6 +87,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
+          command_timeout: 15m
           envs: APP_IMAGE,MIGRATE_IMAGE,GHCR_USER,GHCR_TOKEN,DATABASE_URL,JWT_SECRET,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET,CLOUDINARY_URL,EMAIL_USER,EMAIL_HOST,EMAIL_PASS,EMAIL_PORT
           script: |
             set -e
