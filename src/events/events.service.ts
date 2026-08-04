@@ -74,6 +74,22 @@ export class EventsService {
     });
   }
 
+  async findEventsByHostId(hostId: string) {
+    const event = await this.prisma.event.findMany({
+      where: {
+        participants: {
+          some: {
+            userId: hostId,
+            role: EventRole.HOST,
+          },
+        },
+      },
+    });
+    if (!event || event.length === 0)
+      throw new NotFoundException('No events found for this host!');
+    return event;
+  }
+
   async findOne(id: string) {
     const event = await this.prisma.event.findUnique({
       where: { id },

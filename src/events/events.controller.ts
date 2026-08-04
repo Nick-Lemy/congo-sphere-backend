@@ -234,4 +234,23 @@ export class EventsController {
   findAllAttendees(@Param('id') id: string) {
     return this.eventsService.findAllAttendees(id);
   }
+
+  @ApiOperation({
+    summary: 'Find my events',
+    description: 'Get all events created by the current user',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of events retrieved succesfully!',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Host or Event not found!',
+  })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @Get('/my-events')
+  findMyEvents(@CurrentUser() user: JwtPayload) {
+    return this.eventsService.findEventsByHostId(user.sub);
+  }
 }
