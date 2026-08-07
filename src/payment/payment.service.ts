@@ -4,23 +4,35 @@ import { InitiateDepositResponseDto } from './dto/initiate-deposit-response.dto'
 import { randomUUID } from 'crypto';
 import { CheckDepositStatusResponseDto } from './dto/status-check-deposit-response.dto';
 import { ResendDepositResponseDto } from './dto/resend-deposit-response.dto';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { InitiatePaymentDepositJob } from './payment.processor';
 
 @Injectable()
 export class PaymentService {
   private readonly PAWAPAY_URL = process.env.PAWAPAY_URL + '/v2';
   private readonly API_TOKEN = process.env.PAWAPAY_API_TOKEN;
+  private readonly COUNTRY = 'COG'
   private readonly PAYER_TYPE = 'MMO';
   private readonly CURRENCY = 'XAF';
-  private readonly ticketPaymentMessaage = 'Paiement du ticket';
+  private readonly ticketPaymentMessage = 'Paiement du ticket';
 
-  private async initiateDeposit(
-    clientReferenceId: string,
+  constructor(
+    @InjectQueue('initiate-payment-deposit') 
+    private readonly initiatePaymentDepositQueue: Queue<InitiatePaymentDepositJob>
+  ){}
+
+  async initiateDeposit(
+    userId: string,
+    entityId: string,
+    entityName: string,
     amount: string,
     phoneNumber: string,
     customerMessage: string,
   ) {
     const paymentProvider = this.predictProvider(phoneNumber);
     const depositId = randomUUID();
+    const customerTimestamp = new Date().toISOString();
     try {
       const response = await fetch(`${this.PAWAPAY_URL}/deposits`, {
         method: 'POST',
@@ -30,17 +42,29 @@ export class PaymentService {
         },
         body: JSON.stringify({
           depositId,
-          payer: {
-            type: this.PAYER_TYPE,
-            accountDetails: {
-              phoneNumber: phoneNumber,
-              provider: paymentProvider,
-            },
-          },
           amount,
           currency: this.CURRENCY,
-          clientReferenceId: `${clientReferenceId}`,
-          customerMessage,
+          correspondent: paymentProvider,
+          payer: {
+            type: this.PAYER_TYPE,
+            address: {
+              phoneNumber: phoneNumber,
+            },
+          },
+          metadata: [
+            {
+              fieldName: entityName,
+              fieldValue: entityId,
+            },
+            {
+              fieldName: 'userId',
+              fieldValue: userId,
+              isPII: true
+            }
+          ],
+          customerTimestamp,
+          country: this.COUNTRY,
+          statementDescription: customerMessage,
         }),
       });
       const data = (await response.json()) as InitiateDepositResponseDto;
@@ -77,18 +101,19 @@ export class PaymentService {
   }
 
   async processTicketPayment(
-    eventUserId: string,
+    ticketId: string,
+    userId: string,
     amount: string,
     phoneNumber: string,
   ) {
-    const depositResponse = await this.initiateDeposit(
-      eventUserId,
+   await this.initiatePaymentDepositQueue.add('initiate-payment-deposit', {
+      userId,
+      entityId: ticketId,
+      entityName: 'ticketId',
       amount,
       phoneNumber,
-      this.ticketPaymentMessaage,
-    );
-    console.log(depositResponse);
-    return depositResponse;
+      customerMessage: this.ticketPaymentMessage,
+    });
   }
 
   async resendTicketPaymentCallback(eventUserId: string) {

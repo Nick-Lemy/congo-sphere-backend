@@ -28,7 +28,7 @@ export enum CheckDepositStatus {
   NOT_FOUND = 'NOT_FOUND',
 }
 
-export interface FailureReason {
-  failureCode: DepositFailureCode;
-  failureMessage: string;
+export interface RejectionReason {
+  rejectionCode: DepositFailureCode;
+  rejectionMessage: string;
 }

@@ -1,6 +1,6 @@
 import {
   InitiateDepositStatus,
-  FailureReason,
+  RejectionReason,
 } from '../../common/types/payment.types';
 
 export type InitiateDepositResponseDto =
@@ -16,5 +16,5 @@ export class AcceptedDepositResponseDto {
 export class RejectedDepositResponseDto {
   depositId!: string;
   status!: InitiateDepositStatus.REJECTED;
-  failureReason!: FailureReason;
+  rejectionReason!: RejectionReason;
 }
