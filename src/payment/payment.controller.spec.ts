@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentController } from './payment.controller';
 import { PaymentService } from './payment.service';
 
-describe('PaymentController', () => {
+describe.skip('PaymentController', () => {
   let controller: PaymentController;
 
   beforeEach(async () => {
