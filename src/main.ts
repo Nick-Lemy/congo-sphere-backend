@@ -10,7 +10,10 @@ async function bootstrap() {
 
   app.set('trust proxy', 1);
 
-  app.enableCors();
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN?.split(',').map((origin) => origin.trim()),
+    credentials: true,
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
