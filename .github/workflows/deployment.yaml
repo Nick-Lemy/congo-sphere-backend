@@ -82,13 +82,14 @@ jobs:
           EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_PORT: ${{ secrets.EMAIL_PORT }}
+          CORS_ORIGIN: ${{ secrets.CORS_ORIGIN }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           command_timeout: 15m
-          envs: APP_IMAGE,MIGRATE_IMAGE,GHCR_USER,GHCR_TOKEN,DATABASE_URL,JWT_SECRET,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET,CLOUDINARY_URL,EMAIL_USER,EMAIL_HOST,EMAIL_PASS,EMAIL_PORT
+          envs: APP_IMAGE,MIGRATE_IMAGE,GHCR_USER,GHCR_TOKEN,DATABASE_URL,JWT_SECRET,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET,CLOUDINARY_URL,EMAIL_USER,EMAIL_HOST,EMAIL_PASS,EMAIL_PORT,CORS_ORIGIN
           script: |
             set -e
             REPO_DIR="$HOME/congo-sphere-backend"
