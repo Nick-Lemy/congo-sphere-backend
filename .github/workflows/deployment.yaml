@@ -27,6 +27,9 @@ jobs:
           echo "app_image=ghcr.io/${REPO}:${TAG}" >> "$GITHUB_OUTPUT"
           echo "migrate_image=ghcr.io/${REPO}-migrate:${TAG}" >> "$GITHUB_OUTPUT"
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -43,6 +46,7 @@ jobs:
           context: .
           file: ./dockerfile
           target: builder
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.names.outputs.migrate_image }}
           cache-from: type=gha
@@ -54,6 +58,7 @@ jobs:
           context: .
           file: ./dockerfile
           target: runner
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.names.outputs.app_image }}
           cache-from: type=gha
