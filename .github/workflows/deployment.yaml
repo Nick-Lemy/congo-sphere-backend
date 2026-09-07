@@ -102,7 +102,10 @@ jobs:
 
             # Sync the repo
             if [ -d "$REPO_DIR/.git" ]; then
-              cd "$REPO_DIR" && git pull origin main
+              cd "$REPO_DIR"
+              # Clean up any Docker-created directories that clash with files
+              [ -d "Caddyfile" ] && sudo rm -rf Caddyfile
+              git pull origin main
             else
               git clone --branch main "$REPO_URL" "$REPO_DIR" && cd "$REPO_DIR"
             fi
