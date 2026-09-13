@@ -127,6 +127,7 @@ jobs:
             EMAIL_HOST=${EMAIL_HOST}
             EMAIL_PASS=${EMAIL_PASS}
             EMAIL_PORT=${EMAIL_PORT}
+            CORS_ORIGIN=${CORS_ORIGIN}
             EOF
 
             # Pull prebuilt images from GHCR
